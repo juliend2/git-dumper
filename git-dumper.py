@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 from contextlib import closing
 import argparse
 import multiprocessing
@@ -18,6 +18,7 @@ import dulwich.pack
 import requests
 import socks
 
+FAKE_UA="Mozilla/5.0 (X11; Linux x86_64; rv:12.0) Gecko/20100101 Firefox/12.0"
 
 def printf(fmt, *args, file=sys.stdout):
     if args:
@@ -183,6 +184,7 @@ class DownloadWorker(Worker):
         with closing(self.session.get('%s/%s' % (url, filepath),
                                       allow_redirects=False,
                                       stream=True,
+                                      headers={'User-Agent':FAKE_UA},
                                       timeout=timeout)) as response:
             printf('[-] Fetching %s/%s [%d]\n', url, filepath, response.status_code)
 
@@ -211,6 +213,7 @@ class RecursiveDownloadWorker(DownloadWorker):
         with closing(self.session.get('%s/%s' % (url, filepath),
                                       allow_redirects=False,
                                       stream=True,
+                                      headers={'User-Agent':FAKE_UA},
                                       timeout=timeout)) as response:
             printf('[-] Fetching %s/%s [%d]\n', url, filepath, response.status_code)
 
@@ -244,6 +247,7 @@ class FindRefsWorker(DownloadWorker):
     def do_task(self, filepath, url, directory, retry, timeout):
         response = self.session.get('%s/%s' % (url, filepath),
                                     allow_redirects=False,
+                                    headers={'User-Agent':FAKE_UA},
                                     timeout=timeout)
         printf('[-] Fetching %s/%s [%d]\n', url, filepath, response.status_code)
 
@@ -280,6 +284,7 @@ class FindObjectsWorker(DownloadWorker):
         else:
             response = self.session.get('%s/%s' % (url, filepath),
                                         allow_redirects=False,
+                                        headers={'User-Agent':FAKE_UA},
                                         timeout=timeout)
             printf('[-] Fetching %s/%s [%d]\n', url, filepath, response.status_code)
 
@@ -321,10 +326,13 @@ def fetch_git(url, directory, jobs, retry, timeout):
 
     # check for /.git/HEAD
     printf('[-] Testing %s/.git/HEAD ', url)
-    response = requests.get('%s/.git/HEAD' % url, verify=False, allow_redirects=False)
+    response = requests.get('%s/.git/HEAD' % url, verify=False,
+            allow_redirects=False,
+            headers={'User-Agent':FAKE_UA})
     printf('[%d]\n', response.status_code)
 
     if response.status_code != 200:
+        print(response.status_code)
         printf('error: %s/.git/HEAD does not exist\n', url, file=sys.stderr)
         return 1
     elif not response.text.startswith('ref:'):
@@ -333,7 +341,9 @@ def fetch_git(url, directory, jobs, retry, timeout):
 
     # check for directory listing
     printf('[-] Testing %s/.git/ ', url)
-    response = requests.get('%s/.git/' % url, verify=False, allow_redirects=False)
+    response = requests.get('%s/.git/' % url, verify=False,
+            allow_redirects=False,
+            headers={'User-Agent':FAKE_UA})
     printf('[%d]\n', response.status_code)
 
     if response.status_code == 200 and is_html(response) and 'HEAD' in get_indexed_files(response):
